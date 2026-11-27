@@ -1,0 +1,10 @@
+numpy
+pandas
+PyYAML
+nibabel
+scipy
+torch
+monai>=1.3,<1.4
+pytest
+lifelines
+scikit-survival

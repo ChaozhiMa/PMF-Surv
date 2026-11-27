@@ -1,0 +1,288 @@
+experiment:
+  name: pmf_surv_seed2026
+  output_dir: outputs/pmf_surv_seed2026
+  seed: 2026
+data:
+  phase_order:
+  - AP
+  - PVP
+  - DP
+  image_shape:
+  - 3
+  - 128
+  - 128
+  - 128
+  image_exts:
+  - .nii.gz
+  - .nii
+  - .npz
+  - .npy
+  filename_patterns:
+  - Patient_{pid}
+  - Patient_{pid}b
+  - '{pid}'
+  - '{pid}b'
+  train_image_dir: data/images/train
+  train_csv: data/train.csv
+  val_image_dir: data/images/val
+  val_csv: data/val.csv
+  test_image_dir: data/images/test
+  test_csv: data/test.csv
+  patient_id_col: ID
+  os_time_col: OS_time
+  os_event_col: OS_status
+  pfs_time_col: PFS_time
+  pfs_event_col: PFS_status
+  continuous_vars:
+  - Age
+  - AFP
+  - Tumor_size
+  - Tumor_number
+  categorical_vars:
+  - Male
+  - HBV
+  - Child_Pugh
+  - BCLC
+  - ECOG_PS
+  - PVTT
+  - LungMet
+  - BoneMet
+  - Line_of_ICIs
+  - Prior_local_therapy
+  - Cirrhosis
+  composite_vars:
+  - LNMet
+  - Up_to_Seven
+  normalization: zscore_joint
+  strict_images: true
+  num_workers: 4
+  pin_memory: true
+  persistent_workers: false
+  external_centers:
+    amu:
+      csv: data/centers/amu.csv
+    ch:
+      csv: data/centers/ch.csv
+    yjsh:
+      csv: data/centers/yjsh.csv
+augmentation:
+  enabled: true
+  flip_probability: 0.5
+  noise_probability: 0.15
+  noise_std: 0.02
+  intensity_probability: 0.2
+  intensity_scale:
+  - 0.9
+  - 1.1
+  intensity_shift:
+  - -0.1
+  - 0.1
+model:
+  num_phases: 3
+  patch_grid:
+  - 8
+  - 8
+  - 8
+  patch_size:
+  - 16
+  - 16
+  - 16
+  token_dim: 256
+  swin:
+    patch_size:
+    - 4
+    - 4
+    - 4
+    window_size:
+    - 7
+    - 7
+    - 7
+    feature_size: 96
+    depths:
+    - 2
+    - 2
+    - 6
+    - 2
+    num_heads:
+    - 3
+    - 6
+    - 12
+    - 24
+    mlp_ratio: 4.0
+    attention_dropout: 0.0
+    drop_path_rate: 0.2
+    use_checkpoint: true
+  interaction_depth: 2
+  interaction_heads: 4
+  interaction_tolerance_radius: 1
+  dropout: 0.1
+  token_reliability:
+    enabled: true
+    hidden_dim: 256
+    initial_probability: 0.575
+    initial_weight_std: 0.001
+    minimum_probability: 0.02
+    attention_log_bias_strength: 1.0
+    gate_warmup_epochs: 0
+    quality_band:
+      enabled: true
+      mode: iterative_asymmetric_hard
+      grouping: patient_phase
+      target_fraction: 0.6
+      high_quality_weight: 1.0
+      low_quality_weight: 0.02
+      iterations: 64
+      update_blend: 0.5
+      tolerance: 1.0e-05
+      minimum_scale: 1.0e-06
+    calibration:
+      every_steps: 4
+      batch_size_per_gpu: 1
+      loss_weight: 0.2
+      degradation_kinds:
+      - noise
+      - blur
+      - stripes
+      - slice_loss
+      - intensity
+      regions_per_sample:
+      - 2
+      - 4
+      region_size_tokens:
+      - 1
+      - 3
+      severity:
+      - 0.4
+      - 1.0
+      shared_phase_probability: 0.25
+      noise_std: 0.6
+      blur_kernel_size: 5
+      stripe_amplitude: 0.7
+      intensity_scale:
+      - 0.55
+      - 1.45
+      intensity_shift:
+      - -0.5
+      - 0.5
+      target_temperature: 0.15
+      corruption_penalty: 0.75
+      ranking_margin: 0.15
+      ranking_weight: 0.5
+  clinical_embedding_dim: 32
+  image_risk_tokens: 6
+  survival_hidden_dim: 256
+  num_time_bins: 12
+  survival_head:
+    type: mtlr
+  os_prediction:
+    mode: time_query_independent
+    pfs_detach_shared: true
+  time_query:
+    attention_heads: 4
+  matching:
+    type: qred
+  ot:
+    assignment_mode: hard_top1
+    hard_top1_straight_through: true
+    semantic_affinity:
+      mode: cosine
+    epsilon: 0.07
+    query_balance_weight: 0.5
+    iterations: 240
+    tolerance: 0.0001
+auxiliary:
+  reconstruction_mask_ratio: 0.5
+  reconstruction_shared_mask_fraction: 0.3
+  reconstruction_block_size:
+  - 2
+  - 4
+  reconstruction_decoder_depth: 1
+  reconstruction_edge_weight: 0.2
+  reconstruction_high_frequency_weight: 0.1
+  spatial_absolute_weight: 0.1
+  spatial_relative_weight: 1.0
+  spatial_continuity_weight: 0.5
+  spatial_triplane_weight: 0.25
+  spatial_relative_pairs: 64
+  spatial_continuity_margin: 0.2
+  contrastive_temperature: 0.2
+  dynamic_contrastive_until_epoch: 50
+  dynamic_contrastive_every_steps: 4
+  dynamic_contrastive_batch_size_per_gpu: 3
+  dynamic_patient_weight: 1.0
+  dynamic_transition_weight: 0.5
+  dynamic_phase_weight: 0.3
+  dynamic_replacement_weight: 0.5
+loss:
+  os_weight: 1.0
+  pfs_weight: 0.3
+  os_cox_weight: 0.0
+  pfs_cox_weight: 0.0
+  os_rank_weight: 0.2
+  pfs_rank_weight: 0.2
+  rank_temperature: 0.1
+  rank_warmup_epochs: 5
+  rank_ipcw:
+    enabled: true
+    apply_to_pfs: false
+    survival_floor: 0.1
+    cap_quantile: 0.99
+  brier_weight: 0.0
+  endpoint_consistency_weight: 0.1
+  ecomix:
+    enabled: false
+    detach_image_tokens: true
+    probability: 0.5
+    alpha: 0.1
+    weight: 0.1
+    top_k: 8
+    temperature: 1.0
+    endpoint_weight: 0.5
+schedule:
+  structure_end_epoch: 0
+  transition_end_epoch: 0
+  survival_only_start_epoch: 121
+  warmup_regularization_scale: 1.0
+  warmup:
+    survival: 1.0
+    reconstruction: 0.05
+    spatial: 0.02
+    dynamic: 0.02
+  transition_start:
+    survival: 1.0
+    reconstruction: 0.05
+    spatial: 0.02
+    dynamic: 0.02
+  transition_end:
+    survival: 1.0
+    reconstruction: 0.05
+    spatial: 0.02
+    dynamic: 0.02
+  main:
+    survival: 1.0
+    reconstruction: 0.05
+    spatial: 0.02
+    dynamic: 0.02
+training:
+  checkpoint_selection_metric: os_cindex
+  epochs: 150
+  batch_size_per_gpu: 6
+  eval_batch_size_per_gpu: 6
+  gradient_accumulation_steps: 1
+  encoder_lr: 2.0e-05
+  token_reliability_lr: 5.0e-05
+  fusion_lr: 5.0e-05
+  head_lr: 5.0e-05
+  auxiliary_lr: 3.0e-05
+  stage_boundary_lr: 1.0e-07
+  stage1_warmup_steps: 200
+  stage2_head_warmup_epochs: 5
+  weight_decay: 0.001
+  gradient_clip: 1.0
+  mixed_precision: fp16
+  deterministic: true
+  patience: 30
+  sampler: joint_event_batch
+  max_stratum_oversample: 2.0
+  save_every_epochs: 10
+  resume: null
